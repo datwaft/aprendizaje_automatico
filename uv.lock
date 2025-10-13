@@ -25,6 +25,7 @@ dependencies = [
     { name = "pandas-stubs" },
     { name = "prophet" },
     { name = "scikit-learn" },
+    { name = "scipy" },
     { name = "seaborn" },
     { name = "statsmodels" },
 ]
@@ -40,6 +41,7 @@ requires-dist = [
     { name = "pandas-stubs", specifier = ">=2.3.2.250827" },
     { name = "prophet", specifier = ">=1.1.7" },
     { name = "scikit-learn", specifier = ">=1.7.2" },
+    { name = "scipy", specifier = ">=1.16.2" },
     { name = "seaborn", specifier = ">=0.13.2" },
     { name = "statsmodels", specifier = ">=0.14.5" },
 ]
