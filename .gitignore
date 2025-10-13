@@ -1,2 +1,5 @@
 # Python kernel
 .python3-kernel.json
+
+# Jupytext files
+*.md
