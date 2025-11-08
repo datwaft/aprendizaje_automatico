@@ -1,6 +1,189 @@
-\documentclass[lettersize,journal]{IEEEtran}
+\documentclass[journal]{IEEEtran}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{cite}
+
+\title{Trabajo Practico 3}
+
+\author{
+    \IEEEauthorblockN{Kenneth Eduardo Barboza Corrales\IEEEauthorrefmark{1}, David Alberto Guevara Sánchez\IEEEauthorrefmark{2}}\\
+    \IEEEauthorblockA{\IEEEauthorrefmark{1}Maestría en Ciencias de la Computación, Tecnológico de Costa Rica}\\
+    \IEEEauthorblockA{\IEEEauthorrefmark{2}Afiliación del Autor 2}
+}
 
 \begin{document}
 
+\maketitle
+
+\begin{abstract}
+Este trabajo presenta un experimento de agrupamiento no supervisado sobre un conjunto de imágenes en escala de grises (48x48 píxeles) que representan emociones humanas. Se aplicó preprocesamiento mediante ecualización de histograma, normalización y reducción de dimensionalidad con PCA (90\% varianza explicada). Se evaluaron dos algoritmos: K-Means y Gaussian Mixture Model (GMM), utilizando métricas internas Silhouette y Davies–Bouldin. Los resultados muestran baja separación entre clústeres, con valores óptimos en rangos reducidos de $k$.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Aprendizaje no supervisado; \textit{Clustering; K-Means; Gaussian Mixture Method; PCA;} Silhouette; Davies–Bouldin.
+\end{IEEEkeywords}
+
+\section{Introducción}
+El reconocimiento de emociones en imágenes es un desafío relevante en inteligencia artificial. Este estudio explora técnicas de agrupamiento no supervisado para descubrir patrones en un conjunto de datos sin etiquetas, aplicando reducción de dimensionalidad y algoritmos clásicos de clustering.\\
+Para enfrentar la complejidad del espacio original, se aplicó un preprocesamiento que incluyó ecualización de histograma, normalización y reducción de dimensionalidad mediante Análisis de Componentes Principales (PCA), conservando el 90\% de la varianza. Posteriormente, se implementaron dos algoritmos ampliamente utilizados en clustering: K-Means y Gaussian Mixture Models (GMM).\\
+El objetivo principal es evaluar la calidad del agrupamiento en función del número de clústeres (kkk) y determinar si los datos presentan una estructura coherente con categorías emocionales. Para ello, se emplearon métricas internas Silhouette y Davies–Bouldin Index, junto con el criterio del codo para estimar el valor óptimo de $k$.
+
+\section{Trabajos relacionados - Estado del arte}
+Revisión de literatura y estudios previos relacionados con el tema.
+
+\section{Conceptos claves (Background)}
+El agrupamiento no supervisado es una técnica fundamental en aprendizaje automático que permite descubrir estructuras ocultas en datos sin etiquetas. En este estudio, se aplican conceptos clave:
+
+\begin{itemize}
+    \item \textbf{Aprendizaje No Supervisado:} Método que busca patrones en datos sin información previa sobre clases. Ideal para problemas donde no existen etiquetas, como emociones en imágenes.
+    \item \textbf{Reducción de Dimensionalidad (PCA):} El Análisis de Componentes Principales (PCA) transforma datos originales en un espacio reducido preservando la mayor varianza posible. En este trabajo se retuvo el 90\% de la varianza, reduciendo de 2304 características (48x48 píxeles) a 201 componentes.
+    \item \textbf{Algoritmo K-Means:} Técnica basada en partición que agrupa datos según proximidad a centroides. Supone clústeres esféricos y de tamaño similar.
+    \item \textbf{Modelo de Mezcla Gaussiana (GMM):} Método probabilístico que asume que los datos provienen de una combinación de distribuciones gaussianas. Permite asignación suave mediante probabilidades.
+    \item \textbf{Métricas Internas:} 
+        \begin{itemize}
+            \item \textit{Silhouette:} Evalúa cohesión y separación de clústeres, con valores entre -1 y 1 (mayor es mejor).
+            \item \textit{Índice Davies-Bouldin (DBI):} Mide dispersión intra-clúster y separación inter-clúster (menor es mejor).
+        \end{itemize}
+\end{itemize}
+Estos conceptos son esenciales para comprender el diseño experimental y la interpretación de resultados.
+
+\section{Materiales y métodos}
+\subsection{Conjunto de Datos}
+Se utilizó el dataset \texttt{datos\_imagenes\_USAR.csv}, compuesto por 35,887 imágenes en escala de grises de 48x48 píxeles. Antes de preprocesar el conjunto se procedió a:
+\begin{itemize}
+    \item Eliminar filas duplicadas.
+    \item Descartar el 1\% de las imágenes con menor varianza.
+\end{itemize}
+
+\begin{figure}[!t]
+    \centering
+    \includegraphics[width=0.45\textwidth]{images/face33.png}
+    \caption{Imagen con el índice $33$ del \textit{dataset} antes de preprocesamiento}
+    \label{fig:face33}
+\end{figure}
+
+\begin{figure}[!t]
+    \centering
+    \includegraphics[width=0.45\textwidth]{images/worst10.png}
+    \caption{Imágenes con muy poca varianza}
+    \label{fig:worst8}
+\end{figure}
+
+\begin{figure}[!t]
+    \centering
+    \includegraphics[width=0.45\textwidth]{images/best10.png}
+    \caption{Imágenes con mayor varianza}
+    \label{fig:best10}
+\end{figure}
+
+\subsection{Preprocesamiento}
+\begin{itemize}
+    \item \textbf{Ecualización de histograma:} Mejora el contraste en las imágenes.
+    \item \textbf{Normalización:} Aplicación de \texttt{StandardScaler} para escalar características.
+    \item \textbf{Reducción de dimensionalidad:} PCA conservando el 90\% de la varianza, reduciendo a 201 componentes (reducción al 8.7\% con respecto al original).
+\end{itemize}
+
+\begin{figure}[!t]
+    \centering
+    \includegraphics[width=0.45\textwidth]{images/beforeAfterEqui.png}
+    \caption{Imagen con el índice $33$ del \textit{dataset} antes de preprocesamiento}
+    \label{fig:face33}
+\end{figure}
+
+\subsection{Algoritmos}
+\textbf{K-Means:} Algoritmo basado en partición que agrupa los datos según la distancia a centroides. Funciona iterativamente:
+\begin{enumerate}
+    \item Asigna cada punto al centroide más cercano.
+    \item Recalcula los centroides como el promedio de los puntos asignados.
+\end{enumerate}
+Este proceso se repite hasta la convergencia. Supone clústeres esféricos y de tamaño similar. Parámetros:
+\begin{itemize}
+    \item \texttt{init = "k-means++"} para inicialización estable.
+    \item \texttt{n\_init = auto}, múltiples reinicios para evitar soluciones locales.
+    \item \texttt{max\_iter = 500}, límite de iteraciones.
+    \item \texttt{algorithm = "elkan"} para optimización eficiente.
+\end{itemize}
+
+\textbf{Gaussian Mixture Model (GMM):} Modelo probabilístico que asume que los datos provienen de una mezcla de distribuciones gaussianas. Cada punto tiene una probabilidad de pertenencia a cada componente, lo que permite asignación suave. Ajuste mediante algoritmo EM (Expectation-Maximization):
+\begin{itemize}
+    \item \texttt{covariance\_type = "spherical"} para simplificar el modelo.
+    \item \texttt{n\_init = 5}, reinicios para mejorar estabilidad.
+    \item \texttt{init\_params = "kmeans"} para inicialización de medias.
+    \item \texttt{max\_iter = 500}, tolerancia \texttt{tol = 1e-3}.
+    \item \texttt{reg\_covar = 1e-6} para evitar problemas numéricos.
+\end{itemize}
+
+\subsection{Métricas de Evaluación}
+Se emplearon dos métricas internas para evaluar la calidad del agrupamiento:
+\begin{itemize}
+    \item \textbf{Coeficiente Silhouette:} Mide la cohesión y separación de los clústeres. Valores cercanos a 1 indican buena separación, valores cercanos a 0 sugieren solapamiento y negativos indican mala asignación.
+    \item \textbf{Índice Davies-Bouldin (DBI):} Evalúa la relación entre dispersión intra-clúster y separación inter-clúster. Valores bajos indican clústeres compactos y bien separados.
+\end{itemize}
+
+\subsection{Diseño Experimental}
+Se evaluaron valores de $k$ en el rango $[2, 20]$. Para K-Means se utilizó la inercia (WCSS) como criterio del codo, y para GMM se emplearon BIC y AIC. Las métricas Silhouette y DBI se calcularon para cada partición.
+
+\section{Resultados}
+En esta sección se presentan los hallazgos obtenidos tras aplicar los algoritmos de agrupamiento sobre el conjunto de datos preprocesado.
+
+\subsection{Métricas Internas}
+Se calcularon las métricas \textit{Silhouette} y \textit{Davies–Bouldin Index (DBI)} para cada valor de $k$ en el rango $[2, 20]$. Los resultados más relevantes se muestran en la Tabla~\ref{tab:metricas}.
+
+\begin{table}[h]
+\centering
+\caption{Comparación de métricas en valores óptimos}
+\label{tab:metricas}
+\begin{tabular}{|c|c|c|c|}
+\hline
+\textbf{Algoritmo} & \textbf{k óptimo} & \textbf{Silhouette} & \textbf{DBI} \\
+\hline
+K-Means & 2 & 0.094 & 3.05 \\
+GMM     & 3 & 0.083 & 2.62 \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{Criterio del Codo}
+Para K-Means se utilizó la inercia (WCSS) y para GMM los criterios BIC y AIC. Las Figuras~\ref{fig:kmeans_codo} y~\ref{fig:gmm_codo} muestran las curvas obtenidas.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.45\textwidth]{images/codoKMeans.png}
+\caption{Criterio del codo para K-Means (Inercia)}
+\label{fig:kmeans_codo}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.45\textwidth]{images/codoGMM.png}
+\caption{Criterio del codo para GMM (BIC/AIC)}
+\label{fig:gmm_codo}
+\end{figure}
+
+\section{Análisis de Resultados}
+Los valores de \textit{Silhouette} son bajos (<0.1), lo que indica una separación débil entre clústeres. Sin embargo, el índice DBI mejora al pasar de $k=2$ a $k=3$, sugiriendo una ligera ganancia en cohesión.
+
+\begin{itemize}
+    \item \textbf{K-Means:} Prefiere $k=2$ según Silhouette, aunque DBI indica mejora en $k=3$.
+    \item \textbf{GMM:} Tiende a $k=3$ por DBI, pero sin mejora significativa en Silhouette.
+\end{itemize}
+
+El criterio del codo para K-Means muestra una disminución rápida de la inercia hasta $k \approx 3$, mientras que en GMM los valores de BIC/AIC descienden casi linealmente sin un codo claro. Esto refuerza la elección práctica de $k=3$ como compromiso entre simplicidad y calidad.
+
+\section{Conclusiones}
+El experimento evidencia que:
+\begin{itemize}
+    \item El preprocesamiento (ecualización, normalización y PCA) mejoró la eficiencia computacional, aunque no logró una separación clara entre emociones.
+    \item Ambos algoritmos (K-Means y GMM) presentan desempeño similar, con métricas internas bajas que reflejan la complejidad del problema.
+    \item El número de clústeres óptimo se ubica entre $k=2$ y $k=3$, siendo $k=3$ una elección razonable para GMM.
+\end{itemize}
+
+\section{Trabajo Futuro}
+Se recomienda explorar algoritmos más robustos (DBSCAN, clustering jerárquico) y métricas adicionales (Calinski-Harabasz, Dunn) para mejorar la calidad del agrupamiento.
+
+\bibliographystyle{IEEEtran}
+\bibliography{referencias}
 
 \end{document}
