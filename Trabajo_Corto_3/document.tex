@@ -22,7 +22,7 @@
 \maketitle
 
 \begin{abstract}
-	Este trabajo presenta un experimento de agrupamiento no supervisado sobre un conjunto de 33,693 imágenes en escala de grises (48x48 píxeles) que representan emociones humanas. Se aplicó preprocesamiento mediante ecualización de histograma, normalización y reducción de dimensionalidad con PCA (201 componentes, 90\% varianza explicada). Se evaluaron dos algoritmos: K-Means y Gaussian Mixture Model (GMM), utilizando métricas internas Silhouette y Davies-Bouldin. Los resultados muestran baja separación entre clústeres, con valores óptimos en rangos reducidos de $k$.
+	Este trabajo presenta un experimento de agrupamiento no supervisado sobre un conjunto de 33,693 imágenes en escala de grises (48x48 píxeles) que representan emociones humanas. Se aplicó preprocesamiento mediante ecualización de histograma, normalización y reducción de dimensionalidad con PCA (201 componentes, 90\% varianza explicada). Se evaluaron dos algoritmos: K-Means y Gaussian Mixture Model (GMM), utilizando métricas internas Silhouette y Davies-Bouldin. Los resultados muestran una baja separación entre clústeres, con valores óptimos en un rango pequeño de valores de $k$.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -33,7 +33,7 @@
 
 Este trabajo aplica técnicas de agrupamiento no supervisado para descubrir patrones en un conjunto de imágenes faciales en escala de grises. El objetivo es evaluar si los datos presentan una estructura coherente con categorías emocionales, sin disponer de etiquetas previas.
 
-El preprocesamiento incluyó ecualización de histograma, normalización y reducción de dimensionalidad mediante PCA~\cite{jolliffe2002pca}, reteniendo el 90\% de la varianza. Se implementaron dos algoritmos: K-Means~\cite{macqueen1967kmeans} y Gaussian Mixture Models (GMM)~\cite{dempster1977em}.
+El preprocesamiento incluyó ecualización de histograma, normalización y reducción de dimensionalidad mediante PCA~\cite{jolliffe2002pca}, manteniendo el 90\% de la varianza explicada. Se implementaron dos algoritmos: K-Means~\cite{macqueen1967kmeans} y Gaussian Mixture Models (GMM)~\cite{dempster1977em}.
 
 La calidad del agrupamiento se evaluó en función del número de clústeres ($k$) mediante métricas internas (Silhouette~\cite{rousseeuw1987silhouette} y Davies-Bouldin~\cite{davies1979dbi}) y el criterio del codo.
 
@@ -43,20 +43,20 @@ El conjunto de datos suministrado contiene 35,887 vectores de 2,304 pixeles (48x
 
 El agrupamiento de imágenes faciales es un problema estudiado en diversos contextos. K-Means~\cite{macqueen1967kmeans} y GMM~\cite{dempster1977em} son métodos comunes de aprendizaje no supervisado para descubrir patrones en datos sin etiquetas.
 
-PCA~\cite{jolliffe2002pca} es una técnica estándar para reducir dimensionalidad en imágenes de alta dimensionalidad. Reduce el coste computacional mientras preserva la mayor parte de la información relevante.
+PCA~\cite{jolliffe2002pca} es una técnica estándar para reducir la dimensionalidad en imágenes de alta dimensionalidad. Reduce el coste computacional mientras preserva la mayor parte de la información relevante.
 
-En reconocimiento facial y análisis de expresiones, el agrupamiento no supervisado enfrenta desafíos debido a la alta variabilidad intra-clase y similitud inter-clase. Métricas como Silhouette~\cite{rousseeuw1987silhouette} y Davies-Bouldin~\cite{davies1979dbi} permiten evaluar calidad de agrupamiento sin etiquetas verdaderas.
+En reconocimiento facial y análisis de expresiones, el agrupamiento no supervisado enfrenta desafíos debido a la alta variabilidad dentro de cada clase y la similitud entre clases. Métricas como Silhouette~\cite{rousseeuw1987silhouette} y Davies-Bouldin~\cite{davies1979dbi} permiten evaluar calidad de agrupamiento sin etiquetas verdaderas.
 
 \section{Conceptos clave (Background)}
 
 \begin{itemize}
-	\item \textbf{Aprendizaje No Supervisado:} búsqueda de patrones en datos sin etiquetas previas de clase.
-	\item \textbf{Reducción de Dimensionalidad (PCA):} el \textit{Análisis de Componentes Principales (PCA)}~\cite{jolliffe2002pca} transforma datos originales en un espacio reducido preservando la mayor varianza posible. En este trabajo se utilizaron 201 componentes (reducción al 8.7\% con respecto al original), reteniendo el 90\% de la varianza.
+	\item \textbf{Aprendizaje no supervisado:} búsqueda de patrones en datos sin etiquetas de clase.
+	\item \textbf{Reducción de dimensionalidad (PCA):} el \textit{Análisis de Componentes Principales (PCA)}~\cite{jolliffe2002pca} transforma los datos originales en un espacio reducido, preservando la mayor varianza posible. En este trabajo se utilizaron 201 componentes (reducción al 8.7\% con respecto al original), reteniendo el 90\% de la varianza.
 	\item \textbf{Algoritmo K-Means:}~\cite{macqueen1967kmeans} algoritmo de partición que agrupa datos según proximidad a centroides. Asume clústeres esféricos y de tamaño similar.
 	\item \textbf{Modelo de Mezcla Gaussiana (GMM):}~\cite{dempster1977em} modelo probabilístico que asume que los datos provienen de una mezcla de distribuciones gaussianas. Cada punto tiene una probabilidad de pertenecer a cada clúster.
 	\item \textbf{Métricas Internas:}
 	      \begin{itemize}
-		      \item \textit{Silhouette}~\cite{rousseeuw1987silhouette}: mide cohesión y separación de clústeres. Valores en $[-1, 1]$; mayor es mejor.
+			      \item \textit{Silhouette}~\cite{rousseeuw1987silhouette}: mide la cohesión y la separación de los clústeres. Valores en $[-1, 1]$; mayor es mejor.
 		      \item \textit{Índice Davies-Bouldin (DBI)}~\cite{davies1979dbi}: evalúa la relación entre dispersión intra-clúster y separación inter-clúster. Menor es mejor.
 	      \end{itemize}
 \end{itemize}
@@ -65,7 +65,7 @@ En reconocimiento facial y análisis de expresiones, el agrupamiento no supervis
 
 \subsection{Conjunto de Datos}
 
-Se utilizó el proporcionado para el trabajo, compuesto por 35,887 imágenes en escala de grises de 48x48 píxeles (ver Figura~\ref{fig:face33_raw}). Cada fila del archivo CSV almacena 2,304 intensidades de 8 bits, por lo que los ejemplos pueden reconstruirse directamente como matrices $48 \times 48$.
+Se utilizó el conjunto de datos proporcionado para el trabajo, compuesto por 35,887 imágenes en escala de grises de 48x48 píxeles (ver Figura~\ref{fig:face33_raw}). Cada fila del archivo CSV almacena 2,304 intensidades de 8 bits, por lo que los ejemplos pueden reconstruirse directamente como matrices $48 \times 48$.
 
 \begin{figure}[H]
 	\centering
@@ -95,7 +95,7 @@ Antes de preprocesar el conjunto se procedió a:
 	\label{fig:best10}
 \end{figure}
 
-Se verificó que no existieran valores faltantes ni pixeles fuera del rango $[0, 255]$. Además, al analizar el histograma de varianzas se observó una cola inferior con rostros prácticamente planos; por eso se descartó el percentil inferior 1\%, que coincide con apenas 341 filas y mejora el contraste de entrada sin sacrificar volumen. Después de estas limpiezas quedaron 33,693 imágenes (93.9\% del conjunto original), número que se usa en todas las corridas posteriores.
+Se verificó que no existieran valores faltantes ni píxeles fuera del rango $[0, 255]$. Además, al analizar el histograma de varianzas se observó una cola inferior con rostros prácticamente planos; por eso se descartó el percentil inferior 1\%, que coincide con apenas 341 filas y mejora el contraste de entrada sin sacrificar volumen. Después de estas limpiezas quedaron 33,693 imágenes (93.9\% del conjunto original), número que se usa en todas las corridas posteriores.
 
 \subsection{Preprocesamiento}
 
@@ -111,7 +111,7 @@ Se verificó que no existieran valores faltantes ni pixeles fuera del rango $[0,
 \end{figure}
 
 \begin{itemize}
-	\item \textbf{Normalización:} aplicación de \lstinline{StandardScaler} de \lstinline{scikit-learn}~\cite{pedregosa2011sklearn} para centrar y escalar cada píxel (ver Figura~\ref{fig:scaled42}). Con esto el PCA no se ve dominado por pixeles con varianza naturalmente más alta.
+	\item \textbf{Normalización:} aplicación de \lstinline{StandardScaler} de \lstinline{scikit-learn}~\cite{pedregosa2011sklearn} para centrar y escalar cada píxel (ver Figura~\ref{fig:scaled42}). Con esto, el PCA no se ve dominado por píxeles con varianza naturalmente más alta.
 \end{itemize}
 
 \begin{figure}[H]
@@ -141,9 +141,9 @@ Se verificó que no existieran valores faltantes ni pixeles fuera del rango $[0,
 
 \subsection{Algoritmos}
 
-Ambos algoritmos se ejecutaron con las implementaciones de \lstinline{scikit-learn}~\cite{pedregosa2011sklearn} y \lstinline{random_state=42} para hacer que las diferencias entre corridas sean comparables. Los valores de $k$ explorados satisfacen la instrucción del curso ($1 < k < 20$) y cubren la hipótesis de que podrían existir entre dos y varias emociones base.
+Ambos algoritmos se ejecutaron con las implementaciones de \lstinline{scikit-learn}~\cite{pedregosa2011sklearn} y \lstinline{random_state=42} para que las diferencias entre corridas sean comparables. Los valores de $k$ explorados satisfacen la instrucción del curso ($1 < k < 20$) y cubren la hipótesis de que podrían existir entre dos y varias emociones base en el conjunto de datos.
 
-\textbf{K-Means:} algoritmo basado en partición que agrupa los datos según la distancia a centroides. Funciona iterativamente:
+\textbf{K-Means:} algoritmo basado en particiones que agrupa los datos según la distancia a centroides. Funciona iterativamente:
 
 \begin{enumerate}
 	\item Asigna cada punto al centroide más cercano.
@@ -152,7 +152,7 @@ Ambos algoritmos se ejecutaron con las implementaciones de \lstinline{scikit-lea
 
 Este proceso se repite hasta la convergencia. Supone clústeres esféricos y de tamaño similar.
 
-\textbf{Gaussian Mixture Model (GMM):} modelo probabilístico que asume que los datos provienen de una mezcla de distribuciones gaussianas. Cada punto tiene una probabilidad de pertenecer a cada clúster. Ajuste mediante algoritmo EM (Expectation-Maximization)~\cite{dempster1977em}.
+\textbf{Gaussian Mixture Model (GMM):} modelo probabilístico que asume que los datos provienen de una mezcla de distribuciones gaussianas. Cada punto tiene una probabilidad de pertenecer a cada clúster. Ajuste mediante el algoritmo EM (Expectation-Maximization)~\cite{dempster1977em}.
 
 Las Tablas~\ref{tab:params_kmeans} y~\ref{tab:params_gmm} muestran los parámetros utilizados para cada algoritmo.
 
@@ -195,7 +195,7 @@ Las Tablas~\ref{tab:params_kmeans} y~\ref{tab:params_gmm} muestran los parámetr
 \subsection{Métricas de Evaluación}
 
 \begin{itemize}
-	\item \textbf{Coeficiente Silhouette:} mide cohesión y separación de clústeres. Valores cercanos a 1 indican buena separación; valores cercanos a 0 indican solapamiento; valores negativos indican mala asignación. Se calculó con una muestra de hasta 10,000 puntos (\lstinline{random_state=42}) para reducir coste computacional manteniendo representatividad.
+	\item \textbf{Coeficiente Silhouette:} mide la cohesión y la separación de los clústeres. Valores cercanos a 1 indican buena separación; valores cercanos a 0 indican solapamiento; valores negativos indican mala asignación. Se calculó con una muestra de hasta 10,000 puntos (\lstinline{random_state=42}) para reducir coste computacional manteniendo representatividad.
 	\item \textbf{Índice Davies-Bouldin (DBI):} evalúa la relación entre dispersión intra-clúster y separación inter-clúster. Valores bajos indican clústeres compactos y bien separados.
 \end{itemize}
 
@@ -203,7 +203,7 @@ Las Tablas~\ref{tab:params_kmeans} y~\ref{tab:params_gmm} muestran los parámetr
 
 Se evaluaron valores de $k$ en el rango $[2, 20]$. Para K-Means se utilizó la inercia (WCSS) como criterio del codo, y para GMM se emplearon BIC y AIC. Las métricas Silhouette y DBI se calcularon para cada partición y se registraron en tablas.
 
-Todo el flujo se ejecutó en Python empleando NumPy, pandas, OpenCV y \lstinline{scikit-learn}~\cite{pedregosa2011sklearn}. El \textit{Jupyter Notebook} junto a este informe permite reproducir los comandos y gráficas mostradas aquí.
+Todo el flujo se ejecutó en Python, empleando NumPy, pandas, OpenCV y \lstinline{scikit-learn}~\cite{pedregosa2011sklearn}. El \textit{Jupyter Notebook} junto a este informe permite reproducir los comandos y gráficas mostradas aquí.
 
 \section{Resultados}
 
@@ -225,7 +225,7 @@ La Tabla~\ref{tab:metricas} muestra los valores óptimos de Silhouette y DBI obt
 	\end{tabular}
 \end{table}
 
-En ambos casos el rango completo de $k$ produjo coeficientes Silhouette entre 0.05 y 0.10, mientras que el índice DBI permaneció por encima de 2.5. Estos números confirman que la estructura latente es débil y que los clústeres resultan muy solapados aun después de reducir la dimensionalidad.
+En ambos casos, el rango completo de $k$ produjo coeficientes Silhouette entre 0.05 y 0.10, mientras que el índice DBI permaneció por encima de 2.5. Estos números confirman que la estructura latente es débil y que los clústeres resultan muy solapados aun después de reducir la dimensionalidad.
 
 \subsection{Criterio del Codo}
 
@@ -247,7 +247,7 @@ Las Figuras~\ref{fig:kmeans_codo} y~\ref{fig:gmm_codo} muestran las curvas de in
 
 \section{Análisis de Resultados}
 
-Los valores de Silhouette son bajos ($<0.1$), indicando separación débil entre clústeres. El índice DBI mejora al pasar de $k=2$ a $k=3$.
+Los valores de Silhouette son bajos ($<0.1$), lo que indica una separación débil entre clústeres. El índice DBI mejora al pasar de $k=2$ a $k=3$.
 
 \begin{itemize}
 	\item \textbf{K-Means:} $k=2$ maximiza Silhouette (0.094); $k=3$ mejora DBI (3.05 $\rightarrow$ 2.62).
@@ -258,11 +258,11 @@ La inercia de K-Means disminuye rápidamente hasta $k \approx 3$, sin mostrar un
 
 \section{Conclusiones}
 
-Los datos de expresiones faciales no presentan una estructura de clúster bien definida. Las métricas Silhouette ($<0.1$) y Davies-Bouldin ($>2.6$) indican solapamiento significativo entre grupos.
+Los datos de expresiones faciales no presentan una estructura de clústeres bien definida. Las métricas Silhouette ($<0.1$) y Davies-Bouldin ($>2.6$) indican solapamiento significativo entre grupos.
 
-PCA redujo dimensionalidad de 2304 a 201 características manteniendo 90\% de varianza, pero no mejoró la separabilidad. K-Means y GMM convergen a soluciones similares con $k=2$ o $k=3$ clústeres. En ambos casos, el criterio del codo no muestra punto de inflexión claro.
+PCA redujo la dimensionalidad de 2304 a 201 características, manteniendo el 90\% de la varianza, pero no mejoró la separabilidad. K-Means y GMM convergen a soluciones similares con $k=2$ o $k=3$ clústeres. En ambos casos, el criterio del codo no muestra punto de inflexión claro.
 
-Los resultados sugieren que la variabilidad en expresiones faciales no se captura adecuadamente mediante agrupamiento esférico basado en distancia euclidiana.
+Los resultados sugieren que la variabilidad en las expresiones faciales no se captura adecuadamente mediante agrupamiento esférico basado en la distancia euclidiana.
 
 \section{Trabajo Futuro}
 
@@ -271,13 +271,13 @@ Para mejorar la calidad del agrupamiento se propone:
 \begin{itemize}
 	\item Evaluar algoritmos basados en densidad (DBSCAN~\cite{ester1996dbscan}, HDBSCAN~\cite{campello2013hdbscan}) que no asumen una forma esférica.
 	\item Probar métricas alternativas como Calinski-Harabasz o Índice de Dunn.
-	\item Explorar técnicas de reducción de dimensionalidad no lineales (t-SNE~\cite{maaten2008tsne}, UMAP~\cite{mcinnes2018umap}) antes del agrupamiento.
+	\item Explorar técnicas de reducción de dimensionalidad no lineales (t-SNE~\cite{maaten2008tsne}, UMAP~\cite{mcinnes2018umap}) previas al agrupamiento.
 	\item Utilizar \textit{autoencoders}~\cite{hinton2006reducing} para realizar una reducción de dimensionalidad más discriminativa que PCA.
 \end{itemize}
 
 \section*{Nota Aclarativa}
 
-Se han utilizado las siguientes herramientas de IA generativa: ChatGPT (GPT-5, GPT-5-Codex), GitHub Copilot (GPT-5, Claude Sonnet 4.5). Su uso se limitó a revisión de código y redacción, ayuda para el análisis de gráficos y resultados, consulta de documentación de librerías, y búsqueda de información para incrementar nuestro conocimiento. Todo el contenido ha sido revisado, verificado y complementado con nuestro aporte personal.
+Se han utilizado las siguientes herramientas de IA generativa: ChatGPT (GPT-5, GPT-5-Codex), GitHub Copilot (GPT-5, Claude Sonnet 4.5). Su uso se limitó a la revisión de código y redacción, la ayuda para el análisis de gráficos y resultados, la consulta de documentación de librerías y la búsqueda de información para incrementar nuestro conocimiento. Todo el contenido ha sido revisado, verificado y complementado con nuestro aporte personal.
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}
