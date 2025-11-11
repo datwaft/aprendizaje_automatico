@@ -6,3 +6,11 @@
 
 # Backups
 *.bak
+
+# LaTeX
+*.aux
+*.bak
+*.bbl
+*.blg
+*.log
+*.xdv
