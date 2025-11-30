@@ -1,6 +1,4 @@
 \documentclass[journal]{IEEEtran}
-\usepackage[T1]{fontenc}
-\usepackage[utf8]{inputenc}
 \usepackage[spanish]{babel}
 \usepackage{lmodern}
 \usepackage{graphicx}
@@ -24,7 +22,7 @@
 \maketitle
 
 \begin{abstract}
-	Se estudió el dataset público de \textit{e-commerce} Olist\cite{olist_dataset} para predecir cuántos días tarda en entregarse cada orden. Se construyó un conjunto de datos unificado con montos de compra, costo de envío, peso, volumen, cantidad de ítems, coordenadas y variables temporales, calculando la distancia geodésica entre cliente y vendedor. Se evitó fuga temporal con un corte cronológico 80/20 (train\_val/test) y validación tomada del 15\% más reciente de train\_val. Como línea base se usó Random Forest y se comparó con XGBoost, LightGBM\cite{ke2017lightgbm} y CatBoost\cite{prokhorenkova2018catboost}. Los mejores resultados se obtuvieron con CatBoost sin tuning (MAE = 4.247 días, RMSE = 5.713), seguido de LightGBM (MAE = 4.294). La distancia fue el predictor más fuerte y los estados del norte presentaron entregas hasta 3 veces más lentas que el sudeste. Los intentos de ajuste de hiperparámetros empeoraron los modelos, por lo que se mantuvieron las configuraciones por defecto.
+	En este trabajo se utilizó el dataset público de Olist\cite{olist_dataset}, una plataforma de comercio electrónico en Brasil, para predecir cuántos días tarda en llegar cada pedido. Se unificaron los datos de órdenes, clientes, vendedores y ubicaciones geográficas, y se calculó la distancia entre cada cliente y su vendedor. Para evitar usar información del futuro durante el entrenamiento, se dividieron los datos de forma cronológica. Se probaron varios modelos de aprendizaje automático: Random Forest, XGBoost, LightGBM\cite{ke2017lightgbm} y CatBoost\cite{prokhorenkova2018catboost}. El mejor resultado lo obtuvo CatBoost con su configuración por defecto (MAE de 4.2 días). Un hallazgo interesante fue que la distancia geográfica resultó ser el factor más importante, y que los estados del norte de Brasil tienen entregas hasta 3 veces más lentas que los del sudeste. Curiosamente, intentar ajustar los hiperparámetros empeoró los resultados en todos los casos.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -33,44 +31,48 @@
 
 \section{Introducción}
 
-Calcular el tiempo de entrega de una orden es clave para gestionar expectativas de los clientes de \textit{e-commerce}. Este trabajo aborda la predicción de días de entrega usando el dataset público de Olist\cite{olist_dataset}, que contiene órdenes realizadas en Brasil con información de clientes, vendedores, productos y coordenadas. El objetivo es estimar la cantidad de días entre la compra y la entrega, manteniendo el flujo de trabajo sencillo y reproducible.
+Cuando compramos algo en línea, una de las primeras preguntas que nos hacemos es: ¿cuándo va a llegar? Para las tiendas de comercio electrónico, poder responder esta pregunta con precisión es fundamental para mantener contentos a sus clientes.
+
+En este trabajo nos propusimos predecir el tiempo de entrega de pedidos usando datos reales de Olist\cite{olist_dataset}, una de las plataformas de \textit{e-commerce} más grandes de Brasil. El dataset incluye información sobre casi 100 mil órdenes: quién compró, quién vendió, desde dónde se envió y hacia dónde. Nuestro objetivo fue construir un modelo que, dado un pedido nuevo, pueda estimar cuántos días tardará en llegar.
 
 \section{Metodología}
 
 \subsection{Datos y construcción del conjunto}
 
-Se consultó la base SQLite provista (versión del dataset de Kaggle) unificando órdenes, ítems, clientes, vendedores y datos geográficos. Se filtraron únicamente órdenes entregadas con información completa y se agregaron todas las filas por orden, obteniendo un conjunto final de 95{,}978 órdenes con 22 atributos. Las características clave incluyen:
+Los datos provienen de una base SQLite con la versión pública del dataset de Kaggle. Unimos varias tablas (órdenes, productos, clientes, vendedores y ubicaciones) para crear un solo conjunto de datos con toda la información relevante. Solo conservamos las órdenes que ya fueron entregadas y que tenían todos sus datos completos, lo que nos dejó con 95{,}978 pedidos y 22 variables.
+
+Las variables principales que usamos son:
 \begin{itemize}
-	\item Totales por orden: precio, costo de envío, peso, volumen y número de ítems.
-	\item Coordenadas promedio por código postal de cliente y vendedor; para órdenes con varios vendedores se promedió su ubicación.
-	\item Distancia geodésica cliente-vendedor en kilómetros.
-	\item Variables temporales de compra (mes, día de semana, hora) y categorías auxiliares (fin de semana, horario laboral, indicador de mismo estado y de región remota).
-	\item Variable objetivo: días efectivos de entrega calculados como diferencia entre la fecha de compra y la fecha de entrega.
+	\item Información del pedido: precio total, costo de envío, peso, volumen y cantidad de productos.
+	\item Ubicación: coordenadas del cliente y del vendedor (promediadas por código postal). Si un pedido tenía varios vendedores, promediamos sus ubicaciones.
+	\item Distancia: calculamos los kilómetros entre cliente y vendedor usando la fórmula geodésica.
+	\item Tiempo de compra: mes, día de la semana y hora en que se hizo el pedido.
+	\item Variable a predecir: días que tardó la entrega (fecha de entrega menos fecha de compra).
 \end{itemize}
 
 \subsection{Ingeniería de características}
 
-A partir del análisis exploratorio se derivaron nueve características adicionales para capturar patrones no lineales y regionales:
+Después de explorar los datos, creamos nueve variables adicionales que podrían ayudar a los modelos a hacer mejores predicciones:
 \begin{enumerate}
-	\item \textbf{Categoría de distancia}: discretización en cuatro rangos---local $<100$ km (17{,}852 órdenes), regional $100$--$500$ km (37{,}123), larga distancia $500$--$1000$ km (25{,}678), muy larga $>1000$ km (15{,}302).
-	\item \textbf{Mismo estado}: indicador binario cuando cliente y vendedor comparten estado (36\% de las órdenes).
-	\item \textbf{Densidad}: cociente peso/volumen (g/cm$^3$), alternativa a incluir ambas variables correlacionadas ($r=0.83$).
-	\item \textbf{Precio por ítem}: precio total dividido por cantidad de ítems.
-	\item \textbf{Costo de envío por kilómetro}: flete normalizado por distancia más uno.
-	\item \textbf{Cliente en región remota}: indicador para estados del norte (RR, AP, AM, AC, RO, PA), que representan 1.6\% de los clientes.
-	\item \textbf{Vendedor en región remota}: indicador análogo para vendedores (0.03\%).
-	\item \textbf{Compra en fin de semana}: indicador de compras en sábado o domingo (23\%).
-	\item \textbf{Compra en horario laboral}: indicador de compras entre 9 y 18 h (62\%).
+	\item \textbf{Categoría de distancia}: agrupamos las distancias en cuatro rangos: local (menos de 100 km, 17{,}852 pedidos), regional (100--500 km, 37{,}123 pedidos), larga distancia (500--1000 km, 25{,}678 pedidos) y muy larga (más de 1000 km, 15{,}302 pedidos).
+	\item \textbf{Mismo estado}: indica si el cliente y el vendedor están en el mismo estado (esto ocurre en el 36\% de los pedidos).
+	\item \textbf{Densidad}: peso dividido entre volumen. Creamos esta variable porque peso y volumen están muy correlacionados entre sí ($r=0.83$).
+	\item \textbf{Precio por producto}: el precio total dividido entre la cantidad de productos.
+	\item \textbf{Costo de envío por kilómetro}: el flete dividido entre la distancia (más uno, para evitar dividir entre cero).
+	\item \textbf{Cliente en zona remota}: marca si el cliente está en estados del norte de Brasil (RR, AP, AM, AC, RO, PA), que son solo el 1.6\% de los clientes.
+	\item \textbf{Vendedor en zona remota}: lo mismo pero para vendedores (apenas el 0.03\%).
+	\item \textbf{Compra en fin de semana}: indica si el pedido se hizo en sábado o domingo (23\% de los casos).
+	\item \textbf{Compra en horario laboral}: indica si se compró entre 9 y 18 horas (62\% de los casos).
 \end{enumerate}
-Las características de región remota y sureste capturan la brecha logística observada entre el norte y el sudeste del país.
+Las variables de zona remota buscan capturar la gran diferencia que existe en tiempos de entrega entre el norte y el sudeste de Brasil.
 
 \subsection{Partición y preprocesamiento}
 
-Para evitar fuga temporal, los datos se ordenaron por fecha de compra. El 20\% más reciente quedó como \textit{test}; dentro del 80\% restante, el 15\% final se usó como \textit{validación} y el resto como \textit{train}. Las fechas de entrega y sus derivados se excluyeron de las \textit{features} para no introducir información futura.
+Un aspecto importante en este tipo de problemas es no usar información del futuro para predecir el pasado. Por eso, ordenamos todos los pedidos por fecha y dividimos los datos de forma cronológica: el 20\% más reciente quedó como conjunto de prueba, y del 80\% restante, el último 15\% se usó para validación. Así nos aseguramos de que el modelo siempre se evalúe con datos ``del futuro''.
 
-El preprocesamiento combina variables categóricas y numéricas mediante un \texttt{ColumnTransformer}: las categorías se codifican con \textit{one-hot} y las variables numéricas se dejan sin escalar, pues los modelos de árboles no lo requieren.
+Para el preprocesamiento, las variables categóricas (como el estado del cliente) se convirtieron a formato \textit{one-hot}, mientras que las numéricas se dejaron sin modificar, ya que los modelos de árboles no necesitan que estén escaladas.
 
-La Tabla~\ref{tab:particion} deja trazados los tamaños y rangos de fechas usados en cada conjunto.
+La Tabla~\ref{tab:particion} muestra cómo quedaron distribuidos los datos.
 
 \begin{table}[H]
 	\centering
@@ -89,17 +91,21 @@ La Tabla~\ref{tab:particion} deja trazados los tamaños y rangos de fechas usado
 
 \subsection{Modelos y métricas}
 
-Se usó MAE como métrica principal y RMSE como complemento. Se entrenaron los modelos en \textit{train}, se midieron en \textit{validación} y se reportaron resultados finales en \textit{test}. Para los ajustes de hiperparámetros se empleó \textit{RandomizedSearchCV} con \textit{TimeSeriesSplit} (3 particiones) y 50 iteraciones por modelo, explorando parámetros como profundidad máxima, tasa de aprendizaje, número de estimadores y regularización. Los modelos probados fueron:
+Para medir qué tan bien predicen los modelos, usamos el MAE (error absoluto medio) como métrica principal y el RMSE como complemento. El MAE nos dice, en promedio, por cuántos días nos equivocamos.
+
+Probamos cuatro tipos de modelos, todos basados en árboles de decisión:
 \begin{itemize}
-	\item Random Forest (200 árboles) como línea base.
-	\item XGBoost baseline y ajuste aleatorio.
-	\item LightGBM baseline y ajuste aleatorio\cite{ke2017lightgbm}.
-	\item CatBoost baseline y ajuste aleatorio orientado a categorías\cite{prokhorenkova2018catboost}.
+	\item Random Forest con 200 árboles, como punto de referencia inicial.
+	\item XGBoost, tanto con configuración por defecto como ajustado.
+	\item LightGBM, que es más rápido para entrenar\cite{ke2017lightgbm}.
+	\item CatBoost, diseñado especialmente para manejar variables categóricas\cite{prokhorenkova2018catboost}.
 \end{itemize}
+
+Para intentar mejorar los modelos, usamos búsqueda aleatoria de hiperparámetros con 50 combinaciones por modelo, probando diferentes valores de profundidad, tasa de aprendizaje, número de árboles y regularización.
 
 \subsection{Flujo de trabajo}
 
-La Figura~\ref{fig:pipeline} esquematiza el pipeline completo desde la ingesta hasta la evaluación.
+La Figura~\ref{fig:pipeline} resume los pasos que seguimos, desde cargar los datos hasta evaluar los modelos.
 
 \begin{figure}[H]
 	\centering
@@ -121,9 +127,9 @@ La Figura~\ref{fig:pipeline} esquematiza el pipeline completo desde la ingesta h
 
 \section{Resultados}
 
-\subsection{Exploración de datos}
+\subsection{Exploración de los datos}
 
-La variable objetivo tiene mediana 10.2 días y media 12.5, con cola larga de valores atípicos por encima de 30 días. Usando el criterio de 1.5$\times$IQR, se identificaron 4{,}891 valores atípicos (5.1\% del total) por encima del umbral de 29.12 días; el máximo alcanza 209.63 días. La Figura~\ref{fig:distribucion} muestra el histograma y el boxplot: el pico principal se ubica entre 7 y 15 días y aparecen entregas extremas por arriba de 200 días.
+Antes de entrenar los modelos, exploramos los datos para entender mejor el problema. La mayoría de los pedidos llegan entre 7 y 15 días, con una mediana de 10.2 días y un promedio de 12.5 días. Sin embargo, hay una cola larga de pedidos que tardan mucho más: encontramos 4{,}891 casos (el 5.1\%) que superan los 29 días, y el más extremo tardó casi 210 días. La Figura~\ref{fig:distribucion} muestra esta distribución.
 
 \begin{figure}[H]
 	\centering
@@ -132,7 +138,7 @@ La variable objetivo tiene mediana 10.2 días y media 12.5, con cola larga de va
 	\label{fig:distribucion}
 \end{figure}
 
-Las fechas de compra y entrega presentan estacionalidad: agosto es el mes con más órdenes y septiembre cae abruptamente; en horas, la franja de 15:00 a 20:00 concentra la mayor actividad. Respecto al tiempo de entrega por mes, febrero es el más lento (16.2 días en promedio) y agosto el más rápido (9.1 días), una variación de aproximadamente 7 días entre el peor y el mejor mes. Por hora de compra, las órdenes realizadas a las 4:00 se entregan más rápido que las de medianoche. La Figura~\ref{fig:temporales} resume estos patrones por mes, día de semana y hora para compras y entregas.
+También encontramos patrones interesantes en el tiempo. Agosto es el mes con más pedidos, mientras que septiembre cae bastante. En cuanto a horarios, la mayor actividad ocurre entre las 3 y las 8 de la tarde. Pero lo más llamativo es la diferencia en tiempos de entrega según el mes: febrero es el más lento (16.2 días en promedio) y agosto el más rápido (9.1 días), una diferencia de 7 días. La Figura~\ref{fig:temporales} resume estos patrones.
 
 \begin{figure}[H]
 	\centering
@@ -141,7 +147,7 @@ Las fechas de compra y entrega presentan estacionalidad: agosto es el mes con m�
 	\label{fig:temporales}
 \end{figure}
 
-La matriz de correlación de la Figura~\ref{fig:correlacion} confirma que la distancia geográfica es el predictor numérico más fuerte del tiempo de entrega ($r=0.394$). El costo de envío correlaciona moderadamente con el tiempo ($r=0.167$), pero se relaciona más con el peso ($r=0.64$) y la distancia ($r=0.315$), indicando que los recargos responden principalmente al tamaño del paquete. Precio total ($r=0.056$) e ítems ($r=-0.019$) tienen correlaciones prácticamente nulas.
+Al analizar las correlaciones (Figura~\ref{fig:correlacion}), la distancia resultó ser la variable numérica más relacionada con el tiempo de entrega ($r=0.39$). El costo de envío tiene una relación más débil con el tiempo ($r=0.17$), y en cambio está más asociado con el peso del paquete ($r=0.64$) y la distancia ($r=0.32$). El precio del pedido y la cantidad de productos casi no tienen relación con cuánto tarda en llegar.
 
 \begin{figure}[H]
 	\centering
@@ -150,7 +156,7 @@ La matriz de correlación de la Figura~\ref{fig:correlacion} confirma que la dis
 	\label{fig:correlacion}
 \end{figure}
 
-El dispersograma de la Figura~\ref{fig:distancia} muestra la relación distancia-tiempo. El ajuste lineal ($y = 0.0064x + 8.74$) sugiere un incremento de $\sim$6.4 días por cada 1000 km adicionales, con un tiempo base de 8.7 días incluso para entregas locales. La dispersión vertical es alta: dos órdenes con la misma distancia pueden diferir en $\pm 20$ días.
+La Figura~\ref{fig:distancia} muestra más claramente esta relación entre distancia y tiempo. Si trazamos una línea de tendencia, por cada 1000 km adicionales el tiempo aumenta unos 6.4 días. Además, incluso para distancias muy cortas, hay un ``piso'' de casi 9 días que probablemente refleja el tiempo mínimo de procesamiento y envío. Eso sí, hay mucha variación: dos pedidos con la misma distancia pueden diferir en hasta 20 días.
 
 \begin{figure}[H]
 	\centering
@@ -159,7 +165,7 @@ El dispersograma de la Figura~\ref{fig:distancia} muestra la relación distancia
 	\label{fig:distancia}
 \end{figure}
 
-La Figura~\ref{fig:estado_cliente} detalla el tiempo promedio según el estado del cliente. Los estados remotos del norte (RR, AP, AM) tardan 26--29 días en promedio, mientras que São Paulo entrega en 8.8 días; la brecha supera 3 veces entre regiones.
+Uno de los hallazgos más importantes tiene que ver con la geografía de Brasil. Como muestra la Figura~\ref{fig:estado_cliente}, los estados del norte (como Roraima, Amapá y Amazonas) tienen tiempos de entrega de 26 a 29 días, mientras que São Paulo promedia solo 8.8 días. Es decir, dependiendo de dónde viva el cliente, la entrega puede tardar hasta 3 veces más.
 
 \begin{figure}[H]
 	\centering
@@ -168,7 +174,7 @@ La Figura~\ref{fig:estado_cliente} detalla el tiempo promedio según el estado d
 	\label{fig:estado_cliente}
 \end{figure}
 
-En el rol de vendedor, el panorama es aún más dispar. La Figura~\ref{fig:estado_vendedor} muestra que enviar desde AM lleva en promedio 47.8 días, casi el doble del siguiente estado, mientras la mayoría se ubica entre 11 y 14 días.
+La ubicación del vendedor también importa, y en algunos casos aún más. La Figura~\ref{fig:estado_vendedor} muestra que enviar desde Amazonas toma en promedio 47.8 días, casi el doble que cualquier otro estado. La mayoría de los vendedores, sin embargo, están en estados donde el promedio ronda los 11 a 14 días.
 
 \begin{figure}[H]
 	\centering
@@ -179,7 +185,13 @@ En el rol de vendedor, el panorama es aún más dispar. La Figura~\ref{fig:estad
 
 \subsection{Comparación de modelos}
 
-La Tabla~\ref{tab:modelos} resume el desempeño en \textit{test} (MAE en días). El Random Forest baseline sirvió como referencia; el ajuste de hiperparámetros lo empeoró (-13.16\%). XGBoost tampoco superó la línea base. LightGBM mejoró 4.07\% y CatBoost fue el mejor con una mejora de 5.11\% sobre Random Forest. Los boosters compartieron un sesgo negativo cercano a -2.4 días, es decir, tienden a sobreestimar ligeramente el tiempo de entrega, lo cual es aceptable para comunicar rangos conservadores.
+La Tabla~\ref{tab:modelos} muestra cómo le fue a cada modelo en el conjunto de prueba. Usamos Random Forest como punto de partida, y a partir de ahí comparamos los demás.
+
+Lo primero que llama la atención es que ajustar los hiperparámetros no ayudó: en todos los casos, las versiones ``ajustadas'' fueron iguales o peores que las de configuración por defecto. El peor caso fue Random Forest, donde el ajuste empeoró el MAE en un 13\%.
+
+El mejor modelo resultó ser CatBoost con su configuración por defecto, logrando un MAE de 4.25 días. LightGBM quedó muy cerca con 4.29 días. Ambos superaron a Random Forest por un 4--5\%.
+
+Algo a notar es que todos los modelos tienen un sesgo negativo de alrededor de -2.4 días, lo que significa que tienden a predecir tiempos un poco más largos de lo real. Esto no es necesariamente malo: es mejor decirle al cliente que su pedido llegará en 12 días y que llegue en 10, que prometerle 10 y que llegue en 12.
 
 \begin{table}[H]
 	\centering
@@ -201,9 +213,9 @@ La Tabla~\ref{tab:modelos} resume el desempeño en \textit{test} (MAE en días).
 	\end{tabular}
 \end{table}
 
-Además del MAE, los boosters líderes presentaron RMSE de 5.678 (LightGBM) y 5.713 (CatBoost), confirmando que el error cuadrático sigue la misma tendencia. Respecto al tiempo de entrenamiento, LightGBM baseline se entrenó en apenas 0.85 segundos, mientras que CatBoost requirió 3.77 segundos; las búsquedas aleatorias aumentaron estos tiempos a varios minutos sin compensar el costo adicional con mejoras de desempeño.
+En cuanto a velocidad de entrenamiento, LightGBM fue el más rápido: apenas 0.85 segundos para entrenar. CatBoost tomó un poco más (3.77 segundos), pero sigue siendo muy razonable. Las búsquedas de hiperparámetros tomaron varios minutos, lo cual no valió la pena dado que no mejoraron los resultados.
 
-La Tabla~\ref{tab:validacion} muestra las métricas en validación, donde los errores fueron mayores que en test debido a la dificultad de las órdenes en ese período. No obstante, el ordenamiento relativo de modelos se mantiene: los boosters LightGBM y CatBoost lideran, y sus variantes ajustadas no superan a las versiones baseline.
+La Tabla~\ref{tab:validacion} muestra los resultados en el conjunto de validación. Los errores son un poco mayores que en test, pero el orden de los modelos se mantiene igual: LightGBM y CatBoost siguen siendo los mejores.
 
 \begin{table}[H]
 	\centering
@@ -225,7 +237,7 @@ La Tabla~\ref{tab:validacion} muestra las métricas en validación, donde los er
 	\end{tabular}
 \end{table}
 
-La Tabla~\ref{tab:sesgo} resume el sesgo promedio (error medio) reportado en el cuaderno para los modelos base: todos sobreestiman el tiempo (sesgo negativo), siendo LightGBM y CatBoost los más cercanos a cero.
+La Tabla~\ref{tab:sesgo} detalla el sesgo de cada modelo. Como mencionamos, todos tienden a sobreestimar el tiempo, pero CatBoost es el que menos lo hace (-2.4 días).
 
 \begin{table}[H]
 	\centering
@@ -243,7 +255,7 @@ La Tabla~\ref{tab:sesgo} resume el sesgo promedio (error medio) reportado en el 
 	\end{tabular}
 \end{table}
 
-La Figura~\ref{fig:mae_modelos} ilustra visualmente las diferencias de MAE en \textit{test}: CatBoost baseline encabeza, LightGBM le sigue de cerca y los ajustes aleatorios empeoran sus respectivas líneas base.
+La Figura~\ref{fig:mae_modelos} permite visualizar estas diferencias. Queda claro que CatBoost y LightGBM son los ganadores, y que intentar ajustar hiperparámetros fue contraproducente.
 
 \begin{figure}[H]
 	\centering
@@ -253,36 +265,43 @@ La Figura~\ref{fig:mae_modelos} ilustra visualmente las diferencias de MAE en \t
 \end{figure}
 \FloatBarrier
 
-\subsection{Importancia de predictores}
+\subsection{¿Qué variables importan más?}
 
-El análisis exploratorio y el desempeño de las características ingenierizadas revelan una jerarquía clara de predictores:
+Del análisis exploratorio y los resultados de los modelos, podemos ordenar las variables por su importancia:
 \begin{enumerate}
-	\item \textbf{Distancia geográfica}: con correlación de 0.394, es el predictor numérico más fuerte. Cada 1000 km adicionales añaden $\sim$6.4 días al tiempo de entrega.
-	\item \textbf{Ubicación regional}: los estados del norte (RR, AP, AM) promedian 26--29 días vs.\ 8--13 días en el sudeste (SP, MG, RJ), una diferencia de hasta 3$\times$. Los indicadores de cliente/vendedor remoto capturan este efecto.
-	\item \textbf{Mismo estado}: las entregas intra-estatales (36\% de las órdenes) son significativamente más rápidas que las interestatales.
-	\item \textbf{Características físicas}: peso, volumen y densidad muestran correlación débil con el tiempo de entrega; el factor logístico dominante es la distancia, no el tamaño del paquete.
-	\item \textbf{Patrones temporales}: comprar en fin de semana o fuera de horario laboral añade menos de 0.5 días en promedio; su impacto es marginal.
+	\item \textbf{Distancia}: es el factor más importante. Cada 1000 km adicionales añaden unos 6 días al tiempo de entrega.
+	\item \textbf{Ubicación geográfica}: los estados del norte tardan 3 veces más que los del sudeste. Las variables que creamos para marcar zonas remotas capturan este efecto.
+	\item \textbf{Mismo estado}: cuando cliente y vendedor están en el mismo estado (36\% de los casos), las entregas son notablemente más rápidas.
+	\item \textbf{Características del paquete}: el peso, volumen y densidad tienen poca relación con el tiempo. Lo que importa es la distancia, no el tamaño.
+	\item \textbf{Momento de compra}: comprar en fin de semana o fuera de horario laboral casi no afecta el tiempo de entrega (menos de medio día de diferencia).
 \end{enumerate}
-La distancia y la región explican la mayor parte de la variabilidad, mientras que las características del producto y el momento de compra tienen efecto secundario.
+En resumen, la geografía lo explica casi todo. Las características del producto y cuándo se compra tienen un efecto menor.
 
 \section{Limitaciones}
 
-El flujo evita fuga temporal explícita, pero persisten varias limitaciones:
+Nuestro trabajo tiene varias limitaciones que vale la pena mencionar:
 \begin{itemize}
-	\item Supone estabilidad logística (stock, rutas, clima); cambios abruptos pueden degradar las predicciones.
-	\item No incorpora variables externas (feriados, clima, congestión), potencialmente relevantes para los valores atípicos.
-	\item El sesgo negativo persistente (~-2.4 días) implica sobreestimación sistemática; requiere calibración adicional.
+	\item Asumimos que las condiciones logísticas se mantienen estables, pero en la realidad cambian todo el tiempo (disponibilidad de productos, capacidad de transporte, clima, etc.).
+	\item No incluimos variables externas que podrían ser útiles, como feriados, condiciones climáticas o eventos especiales que afecten el transporte.
+	\item El modelo tiende a sobreestimar el tiempo de entrega por unos 2.4 días. Aunque esto es preferible a quedarse corto, podría mejorarse con técnicas de calibración.
 \end{itemize}
 
 \section{Trabajo relacionado}
 
-Los modelos basados en árboles han sido ampliamente usados en tabulares para predicción de tiempos y series temporales. Breiman introdujo Random Forest como ensamble robusto para manejar no linealidades sin requerir escalado de variables\cite{breiman2001random}. Chen y Guestrin popularizaron XGBoost como booster eficiente y regularizado\cite{chen2016xgboost}, base de múltiples soluciones en competiciones. LightGBM\cite{ke2017lightgbm} adoptó histogramas y crecimiento \textit{leaf-wise} para acelerar entrenamiento en columnas \textit{one-hot}, mientras que CatBoost\cite{prokhorenkova2018catboost} añadió manejo nativo de categorías y técnicas anti-\textit{leakage}. Estas familias de modelos son estándares de facto para estimar ETAs en contextos logísticos y de \textit{e-commerce}, por su buen compromiso entre precisión y costo computacional.
+Los modelos basados en árboles son muy populares para este tipo de problemas. Random Forest, propuesto por Breiman\cite{breiman2001random}, combina muchos árboles de decisión para hacer predicciones robustas. XGBoost\cite{chen2016xgboost} mejoró esta idea usando \textit{gradient boosting} y se volvió muy popular en competencias de ciencia de datos. LightGBM\cite{ke2017lightgbm} hizo el entrenamiento más rápido usando histogramas, mientras que CatBoost\cite{prokhorenkova2018catboost} se diseñó específicamente para manejar mejor las variables categóricas. Todos estos modelos se usan comúnmente para predecir tiempos de entrega en comercio electrónico porque ofrecen un buen balance entre precisión y velocidad.
 
 \section{Conclusiones y trabajo futuro}
 
-La distancia y la ubicación regional son los factores más determinantes para estimar días de entrega en Olist. Los modelos basados en árboles capturaron este patrón sin requerir ajustes complejos. CatBoost con configuración por defecto fue el mejor equilibrio entre precisión y simplicidad, con un MAE cercano a 4.2 días y sesgo conservador.
+El hallazgo principal de este trabajo es que la distancia geográfica es, por mucho, el factor más importante para predecir cuánto tardará un pedido en llegar. La diferencia entre estados del norte y del sudeste de Brasil es enorme: hasta 3 veces más lento.
 
-Como trabajo futuro se propone calibrar el sesgo negativo, enriquecer el modelo con variables externas (feriados, clima o capacidad logística) y explorar modelos específicos por región para reducir la variabilidad entre estados remotos y el sudeste.
+Entre los modelos que probamos, CatBoost con su configuración por defecto fue el mejor, logrando predecir el tiempo de entrega con un error promedio de 4.2 días. Un resultado sorprendente fue que intentar ajustar los hiperparámetros no solo no ayudó, sino que empeoró los resultados.
+
+Para mejorar este trabajo en el futuro, proponemos tres líneas:
+\begin{itemize}
+	\item Corregir el sesgo del modelo para que no sobreestime tanto el tiempo.
+	\item Incluir información adicional como feriados, clima o capacidad logística.
+	\item Entrenar modelos específicos para diferentes regiones, ya que el norte y el sudeste se comportan de forma muy diferente.
+\end{itemize}
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}
