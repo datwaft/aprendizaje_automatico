@@ -54,6 +54,25 @@ Para evitar fuga temporal, los datos se ordenaron por fecha de compra. El 20\% m
 
 El preprocesamiento combina variables categóricas y numéricas mediante un \texttt{ColumnTransformer}: las categorías se codifican con \textit{one-hot} y las variables numéricas se dejan sin escalar, pues los modelos de árboles no lo requieren.
 
+La Tabla~\ref{tab:particion} deja trazados los tamaños y rangos de fechas usados en cada conjunto.
+
+\begin{table}[H]
+	\centering
+	\caption{Partición temporal empleada en el experimento.}
+	\label{tab:particion}
+	\begin{tabular}{lrr}
+		\hline
+		Conjunto      & Registros & Rango de compra          \\
+		\hline
+		Entrenamiento & 65{,}264  & 2016-09-15 -- 2018-04-06 \\
+		Validación    & 11{,}518  & 2018-04-06 -- 2018-05-26 \\
+		Prueba        & 19{,}196  & 2018-05-26 -- 2018-08-29 \\
+		\hline
+	\end{tabular}
+\end{table}
+
+Para mitigar fuga de información se evitaron atributos derivados de la fecha de entrega, se mantuvo el orden temporal en la partición y se empleó validación con \textit{TimeSeriesSplit}. Aun así, el modelo asume que las condiciones logísticas permanecen estables (stock, rutas, clima), lo que representa una posible fuente de error si esos factores cambian.
+
 \subsection{Modelos y métricas}
 
 Se usó MAE como métrica principal y RMSE como complemento. Se entrenaron los modelos en \textit{train}, se midieron en \textit{validación} y se reportaron resultados finales en \textit{test}. Para los ajustes de hiperparámetros se empleó \textit{RandomizedSearchCV} con \textit{TimeSeriesSplit} (3 particiones) para respetar la secuencia temporal. Los modelos probados fueron:
@@ -132,21 +151,39 @@ La Tabla~\ref{tab:modelos} resume el desempeño en \textit{test} (MAE en días).
 	\label{tab:modelos}
 	\begin{tabular}{lr}
 		\hline
-		Modelo & MAE \\
+		Modelo                   & MAE            \\
 		\hline
-		Random Forest (baseline) & 4.476 \\
-		Random Forest (ajustado) & 5.065 \\
-		XGBoost (baseline) & 4.614 \\
-		XGBoost (ajustado) & 4.766 \\
-		LightGBM (baseline) & 4.294 \\
-		LightGBM (ajustado) & 4.321 \\
-		CatBoost (baseline) & \textbf{4.247} \\
-		CatBoost (ajustado) & 4.581 \\
+		Random Forest (baseline) & 4.476          \\
+		Random Forest (ajustado) & 5.065          \\
+		XGBoost (baseline)       & 4.614          \\
+		XGBoost (ajustado)       & 4.766          \\
+		LightGBM (baseline)      & 4.294          \\
+		LightGBM (ajustado)      & 4.321          \\
+		CatBoost (baseline)      & \textbf{4.247} \\
+		CatBoost (ajustado)      & 4.581          \\
 		\hline
 	\end{tabular}
 \end{table}
 
 Además del MAE, los boosters líderes presentaron RMSE de 5.678 (LightGBM) y 5.713 (CatBoost), confirmando que el error cuadrático sigue la misma tendencia. El tiempo de entrenamiento se mantuvo bajo para las configuraciones por defecto y aumentó durante las búsquedas aleatorias, sin compensar el costo adicional.
+
+La Tabla~\ref{tab:sesgo} resume el sesgo promedio (error medio) reportado en el cuaderno para los modelos base: todos sobreestiman el tiempo (sesgo negativo), siendo LightGBM y CatBoost los más cercanos a cero.
+
+\begin{table}[H]
+	\centering
+	\caption{Sesgo promedio (error medio) en \textit{test} para modelos base.}
+	\label{tab:sesgo}
+	\begin{tabular}{lr}
+		\hline
+		Modelo                   & Sesgo (días) \\
+		\hline
+		Random Forest (baseline) & -2.67        \\
+		XGBoost (baseline)       & -2.68        \\
+		LightGBM (baseline)      & -2.50        \\
+		CatBoost (baseline)      & -2.402       \\
+		\hline
+	\end{tabular}
+\end{table}
 
 La Figura~\ref{fig:mae_modelos} ilustra visualmente las diferencias de MAE en \textit{test}: CatBoost baseline encabeza, LightGBM le sigue de cerca y los ajustes aleatorios empeoran sus respectivas líneas base.
 
@@ -157,6 +194,10 @@ La Figura~\ref{fig:mae_modelos} ilustra visualmente las diferencias de MAE en \t
 	\label{fig:mae_modelos}
 \end{figure}
 \FloatBarrier
+
+\section{Trabajo relacionado}
+
+Los modelos basados en árboles han sido ampliamente usados en tabulares para predicción de tiempos y series temporales. Breiman introdujo Random Forest como ensamble robusto para manejar no linealidades sin requerir escalado de variables\cite{breiman2001random}. Chen y Guestrin popularizaron XGBoost como booster eficiente y regularizado\cite{chen2016xgboost}, base de múltiples soluciones en competiciones. LightGBM\cite{ke2017lightgbm} adoptó histogramas y crecimiento \textit{leaf-wise} para acelerar entrenamiento en columnas \textit{one-hot}, mientras que CatBoost\cite{prokhorenkova2018catboost} añadió manejo nativo de categorías y técnicas anti-\textit{leakage}. Estas familias de modelos son estándares de facto para estimar ETAs en contextos logísticos y de \textit{e-commerce}, por su buen compromiso entre precisión y costo computacional.
 
 \section{Conclusiones y trabajo futuro}
 
