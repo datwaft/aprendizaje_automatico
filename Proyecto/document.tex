@@ -2,11 +2,13 @@
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
 \usepackage[spanish]{babel}
+\usepackage{lmodern}
 \usepackage{graphicx}
 \usepackage{amsmath}
 \usepackage{cite}
 \usepackage{listings}
 \usepackage{float}
+\usepackage{placeins}
 
 \lstset{basicstyle=\ttfamily\footnotesize,columns=flexible,breaklines=true}
 
@@ -66,7 +68,59 @@ Se usó MAE como métrica principal y RMSE como complemento. Se entrenaron los m
 
 \subsection{Exploración de datos}
 
-La variable objetivo presenta una mediana de 10.2 días y una media de 12.5, con cola larga de valores atípicos por encima de 30 días. La distancia geográfica mostró la mayor correlación con el tiempo de entrega (0.394). Los estados remotos del norte (RR, AP, AM) registraron promedios de 26--29 días, mientras que São Paulo entregó en 8.8 días; la brecha supera 3 veces entre regiones. Como vendedores, AM llegó a 47.8 días de media, evidenciando el impacto logístico al despachar desde la Amazonia. Las variables temporales tuvieron efecto marginal: comprar en fin de semana o fuera de horario laboral añadió menos de 0.5 días.
+La variable objetivo tiene mediana 10.2 días y media 12.5, con cola larga de valores atípicos por encima de 30 días. La Figura~\ref{fig:distribucion} muestra el histograma y el boxplot: el pico principal se ubica entre 7 y 15 días y aparecen entregas extremas por arriba de 200 días.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=\linewidth]{figures/distribucion_entrega.png}
+	\caption{Distribución del tiempo de entrega. Asimetría a la derecha y valores atípicos por encima de 30 días.}
+	\label{fig:distribucion}
+\end{figure}
+
+Las fechas de compra y entrega presentan estacionalidad: agosto es el mes con más órdenes y septiembre cae abruptamente; en horas, la franja de 15:00 a 20:00 concentra la mayor actividad. La Figura~\ref{fig:temporales} resume estos patrones por mes, día de semana y hora para compras y entregas.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=\linewidth]{figures/temporales.png}
+	\caption{Patrones temporales de compra (fila superior) y entrega (fila inferior). Agosto es el pico mensual y las 15:00--20:00 son las horas de mayor actividad.}
+	\label{fig:temporales}
+\end{figure}
+
+La matriz de correlación de la Figura~\ref{fig:correlacion} confirma que la distancia geográfica es el predictor numérico más fuerte del tiempo de entrega (0.394). El costo de envío correlaciona moderadamente, mientras que precio total e ítems tienen correlaciones casi nulas.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.9\linewidth]{figures/correlacion.png}
+	\caption{Correlación entre variables numéricas. La distancia destaca como la variable más relacionada con los días de entrega.}
+	\label{fig:correlacion}
+\end{figure}
+
+El dispersograma de la Figura~\ref{fig:distancia} muestra la relación distancia-tiempo. El ajuste lineal sugiere un incremento de ~6.4 días por cada 1000 km adicionales, aunque la dispersión vertical es alta: dos órdenes con la misma distancia pueden diferir en $\pm 20$ días.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=\linewidth]{figures/distancia_vs_tiempo.png}
+	\caption{Relación distancia-tiempo. El ajuste lineal estima ~6.4 días extra por 1000 km, con gran dispersión.}
+	\label{fig:distancia}
+\end{figure}
+
+La Figura~\ref{fig:estado_cliente} detalla el tiempo promedio según el estado del cliente. Los estados remotos del norte (RR, AP, AM) tardan 26--29 días en promedio, mientras que São Paulo entrega en 8.8 días; la brecha supera 3 veces entre regiones.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=\linewidth]{figures/estado_cliente.png}
+	\caption{Promedio de días de entrega por estado del cliente. El norte es el más lento; el sudeste entrega en menos de 15 días.}
+	\label{fig:estado_cliente}
+\end{figure}
+
+En el rol de vendedor, el panorama es aún más dispar. La Figura~\ref{fig:estado_vendedor} muestra que enviar desde AM lleva en promedio 47.8 días, casi el doble del siguiente estado, mientras la mayoría se ubica entre 11 y 14 días.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=\linewidth]{figures/estado_vendedor.png}
+	\caption{Promedio de días de entrega por estado del vendedor. Enviar desde AM es el caso más lento (47.8 días).}
+	\label{fig:estado_vendedor}
+\end{figure}
 
 \subsection{Comparación de modelos}
 
@@ -93,6 +147,16 @@ La Tabla~\ref{tab:modelos} resume el desempeño en \textit{test} (MAE en días).
 \end{table}
 
 Además del MAE, los boosters líderes presentaron RMSE de 5.678 (LightGBM) y 5.713 (CatBoost), confirmando que el error cuadrático sigue la misma tendencia. El tiempo de entrenamiento se mantuvo bajo para las configuraciones por defecto y aumentó durante las búsquedas aleatorias, sin compensar el costo adicional.
+
+La Figura~\ref{fig:mae_modelos} ilustra visualmente las diferencias de MAE en \textit{test}: CatBoost baseline encabeza, LightGBM le sigue de cerca y los ajustes aleatorios empeoran sus respectivas líneas base.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.95\linewidth]{figures/mae_modelos.png}
+	\caption{Comparación de modelos según MAE en \textit{test}. CatBoost baseline logra el menor error; los ajustes aleatorios empeoran el desempeño.}
+	\label{fig:mae_modelos}
+\end{figure}
+\FloatBarrier
 
 \section{Conclusiones y trabajo futuro}
 
