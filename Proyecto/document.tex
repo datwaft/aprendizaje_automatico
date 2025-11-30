@@ -48,6 +48,22 @@ Se consultó la base SQLite provista (versión del dataset de Kaggle) unificando
 	\item Variable objetivo: días efectivos de entrega calculados como diferencia entre la fecha de compra y la fecha de entrega.
 \end{itemize}
 
+\subsection{Ingeniería de características}
+
+A partir del análisis exploratorio se derivaron nueve características adicionales para capturar patrones no lineales y regionales:
+\begin{enumerate}
+	\item \textbf{Categoría de distancia}: discretización en cuatro rangos (local $<100$ km, regional $100$--$500$ km, larga distancia $500$--$1000$ km, muy larga $>1000$ km).
+	\item \textbf{Mismo estado}: indicador binario cuando cliente y vendedor comparten estado (36\% de las órdenes).
+	\item \textbf{Densidad}: cociente peso/volumen (g/cm$^3$), alternativa a incluir ambas variables correlacionadas ($r=0.83$).
+	\item \textbf{Precio por ítem}: precio total dividido por cantidad de ítems.
+	\item \textbf{Costo de envío por kilómetro}: flete normalizado por distancia más uno.
+	\item \textbf{Cliente en región remota}: indicador para estados del norte (RR, AP, AM, AC, RO, PA), que representan 1.6\% de los clientes.
+	\item \textbf{Vendedor en región remota}: indicador análogo para vendedores (0.03\%).
+	\item \textbf{Compra en fin de semana}: indicador de compras en sábado o domingo (23\%).
+	\item \textbf{Compra en horario laboral}: indicador de compras entre 9 y 18 h (62\%).
+\end{enumerate}
+Las características de región remota y sureste capturan la brecha logística observada entre el norte y el sudeste del país.
+
 \subsection{Partición y preprocesamiento}
 
 Para evitar fuga temporal, los datos se ordenaron por fecha de compra. El 20\% más reciente quedó como \textit{test}; dentro del 80\% restante, el 15\% final se usó como \textit{validación} y el resto como \textit{train}. Las fechas de entrega y sus derivados se excluyeron de las \textit{features} para no introducir información futura.
@@ -89,14 +105,14 @@ La Figura~\ref{fig:pipeline} esquematiza el pipeline completo desde la ingesta h
 	\centering
 	\setlength{\fboxsep}{6pt}
 	\begin{tabular}{c}
-		\fbox{\parbox{0.9\linewidth}{\textbf{Ingesta SQLite} \\ Unificación de órdenes, ítems, clientes y vendedores con agregados por orden (precio, flete, peso, volumen, ítems)}}\\[8pt]
-		$\downarrow$\\[8pt]
+		\fbox{\parbox{0.9\linewidth}{\textbf{Ingesta SQLite}             \\ Unificación de órdenes, ítems, clientes y vendedores con agregados por orden (precio, flete, peso, volumen, ítems)}}\\[8pt]
+		$\downarrow$                                                     \\[8pt]
 		\fbox{\parbox{0.9\linewidth}{\textbf{Enriquecimiento geográfico} \\ Lat/lon promedio por código postal y distancia geodésica cliente--vendedor}}\\[8pt]
-		$\downarrow$\\[8pt]
-		\fbox{\parbox{0.9\linewidth}{\textbf{Partición temporal} \\ Corte 80/20 (train\_val/test) y 85/15 dentro de train\_val para validación; sin atributos derivados de la fecha de entrega}}\\[8pt]
-		$\downarrow$\\[8pt]
-		\fbox{\parbox{0.9\linewidth}{\textbf{Preprocesamiento} \\ ColumnTransformer con one-hot para categorías y paso directo de numéricos}}\\[8pt]
-		$\downarrow$\\[8pt]
+		$\downarrow$                                                     \\[8pt]
+		\fbox{\parbox{0.9\linewidth}{\textbf{Partición temporal}         \\ Corte 80/20 (train\_val/test) y 85/15 dentro de train\_val para validación; sin atributos derivados de la fecha de entrega}}\\[8pt]
+		$\downarrow$                                                     \\[8pt]
+		\fbox{\parbox{0.9\linewidth}{\textbf{Preprocesamiento}           \\ ColumnTransformer con one-hot para categorías y paso directo de numéricos}}\\[8pt]
+		$\downarrow$                                                     \\[8pt]
 		\fbox{\parbox{0.9\linewidth}{\textbf{Entrenamiento y evaluación} \\ Modelos de árboles (RF, XGBoost, LightGBM, CatBoost) con MAE/RMSE y sesgo en test}}\\
 	\end{tabular}
 	\caption{Flujo del pipeline de modelado.}
@@ -107,7 +123,7 @@ La Figura~\ref{fig:pipeline} esquematiza el pipeline completo desde la ingesta h
 
 \subsection{Exploración de datos}
 
-La variable objetivo tiene mediana 10.2 días y media 12.5, con cola larga de valores atípicos por encima de 30 días. La Figura~\ref{fig:distribucion} muestra el histograma y el boxplot: el pico principal se ubica entre 7 y 15 días y aparecen entregas extremas por arriba de 200 días.
+La variable objetivo tiene mediana 10.2 días y media 12.5, con cola larga de valores atípicos por encima de 30 días. Usando el criterio de 1.5$\times$IQR, se identificaron 4{,}891 valores atípicos (5.1\% del total) por encima del umbral de 29.12 días; el máximo alcanza 209.63 días. La Figura~\ref{fig:distribucion} muestra el histograma y el boxplot: el pico principal se ubica entre 7 y 15 días y aparecen entregas extremas por arriba de 200 días.
 
 \begin{figure}[H]
 	\centering
@@ -116,7 +132,7 @@ La variable objetivo tiene mediana 10.2 días y media 12.5, con cola larga de va
 	\label{fig:distribucion}
 \end{figure}
 
-Las fechas de compra y entrega presentan estacionalidad: agosto es el mes con más órdenes y septiembre cae abruptamente; en horas, la franja de 15:00 a 20:00 concentra la mayor actividad. La Figura~\ref{fig:temporales} resume estos patrones por mes, día de semana y hora para compras y entregas.
+Las fechas de compra y entrega presentan estacionalidad: agosto es el mes con más órdenes y septiembre cae abruptamente; en horas, la franja de 15:00 a 20:00 concentra la mayor actividad. Respecto al tiempo de entrega por mes, febrero es el más lento (16.2 días en promedio) y agosto el más rápido (9.1 días), una variación de aproximadamente 7 días entre el peor y el mejor mes. Por hora de compra, las órdenes realizadas a las 4:00 se entregan más rápido que las de medianoche. La Figura~\ref{fig:temporales} resume estos patrones por mes, día de semana y hora para compras y entregas.
 
 \begin{figure}[H]
 	\centering
@@ -167,20 +183,20 @@ La Tabla~\ref{tab:modelos} resume el desempeño en \textit{test} (MAE en días).
 
 \begin{table}[H]
 	\centering
-	\caption{Comparación de modelos en \textit{test} (MAE en días).}
+	\caption{Comparación de modelos en \textit{test} (errores en días).}
 	\label{tab:modelos}
-	\begin{tabular}{lr}
+	\begin{tabular}{lrr}
 		\hline
-		Modelo                   & MAE            \\
+		Modelo                   & MAE            & RMSE  \\
 		\hline
-		Random Forest (baseline) & 4.476          \\
-		Random Forest (ajustado) & 5.065          \\
-		XGBoost (baseline)       & 4.614          \\
-		XGBoost (ajustado)       & 4.766          \\
-		LightGBM (baseline)      & 4.294          \\
-		LightGBM (ajustado)      & 4.321          \\
-		CatBoost (baseline)      & \textbf{4.247} \\
-		CatBoost (ajustado)      & 4.581          \\
+		Random Forest (baseline) & 4.476          & 5.955 \\
+		Random Forest (ajustado) & 5.065          & 6.321 \\
+		XGBoost (baseline)       & 4.614          & 6.348 \\
+		XGBoost (ajustado)       & 4.766          & 5.968 \\
+		LightGBM (baseline)      & 4.294          & 5.678 \\
+		LightGBM (ajustado)      & 4.321          & 5.705 \\
+		CatBoost (baseline)      & \textbf{4.247} & 5.713 \\
+		CatBoost (ajustado)      & 4.581          & 5.808 \\
 		\hline
 	\end{tabular}
 \end{table}
@@ -214,6 +230,18 @@ La Figura~\ref{fig:mae_modelos} ilustra visualmente las diferencias de MAE en \t
 	\label{fig:mae_modelos}
 \end{figure}
 \FloatBarrier
+
+\subsection{Importancia de predictores}
+
+El análisis exploratorio y el desempeño de las características ingenierizadas revelan una jerarquía clara de predictores:
+\begin{enumerate}
+	\item \textbf{Distancia geográfica}: con correlación de 0.394, es el predictor numérico más fuerte. Cada 1000 km adicionales añaden $\sim$6.4 días al tiempo de entrega.
+	\item \textbf{Ubicación regional}: los estados del norte (RR, AP, AM) promedian 26--29 días vs.\ 8--13 días en el sudeste (SP, MG, RJ), una diferencia de hasta 3$\times$. Los indicadores de cliente/vendedor remoto capturan este efecto.
+	\item \textbf{Mismo estado}: las entregas intra-estatales (36\% de las órdenes) son significativamente más rápidas que las interestatales.
+	\item \textbf{Características físicas}: peso, volumen y densidad muestran correlación débil con el tiempo de entrega; el factor logístico dominante es la distancia, no el tamaño del paquete.
+	\item \textbf{Patrones temporales}: comprar en fin de semana o fuera de horario laboral añade menos de 0.5 días en promedio; su impacto es marginal.
+\end{enumerate}
+La distancia y la región explican la mayor parte de la variabilidad, mientras que las características del producto y el momento de compra tienen efecto secundario.
 
 \section{Limitaciones}
 
