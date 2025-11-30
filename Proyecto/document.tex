@@ -39,7 +39,7 @@ Calcular el tiempo de entrega de una orden es clave para gestionar expectativas 
 
 \subsection{Datos y construcción del conjunto}
 
-Se consultó la base SQLite provista (versión del dataset de Kaggle) unificando órdenes, ítems, clientes, vendedores y datos geográficos. Se filtraron únicamente órdenes entregadas con información completa y se agregaron todas las filas por orden. Las características clave incluyen:
+Se consultó la base SQLite provista (versión del dataset de Kaggle) unificando órdenes, ítems, clientes, vendedores y datos geográficos. Se filtraron únicamente órdenes entregadas con información completa y se agregaron todas las filas por orden, obteniendo un conjunto final de 95{,}978 órdenes con 22 atributos. Las características clave incluyen:
 \begin{itemize}
 	\item Totales por orden: precio, costo de envío, peso, volumen y número de ítems.
 	\item Coordenadas promedio por código postal de cliente y vendedor; para órdenes con varios vendedores se promedió su ubicación.
@@ -52,7 +52,7 @@ Se consultó la base SQLite provista (versión del dataset de Kaggle) unificando
 
 A partir del análisis exploratorio se derivaron nueve características adicionales para capturar patrones no lineales y regionales:
 \begin{enumerate}
-	\item \textbf{Categoría de distancia}: discretización en cuatro rangos (local $<100$ km, regional $100$--$500$ km, larga distancia $500$--$1000$ km, muy larga $>1000$ km).
+	\item \textbf{Categoría de distancia}: discretización en cuatro rangos---local $<100$ km (17{,}852 órdenes), regional $100$--$500$ km (37{,}123), larga distancia $500$--$1000$ km (25{,}678), muy larga $>1000$ km (15{,}302).
 	\item \textbf{Mismo estado}: indicador binario cuando cliente y vendedor comparten estado (36\% de las órdenes).
 	\item \textbf{Densidad}: cociente peso/volumen (g/cm$^3$), alternativa a incluir ambas variables correlacionadas ($r=0.83$).
 	\item \textbf{Precio por ítem}: precio total dividido por cantidad de ítems.
@@ -89,7 +89,7 @@ La Tabla~\ref{tab:particion} deja trazados los tamaños y rangos de fechas usado
 
 \subsection{Modelos y métricas}
 
-Se usó MAE como métrica principal y RMSE como complemento. Se entrenaron los modelos en \textit{train}, se midieron en \textit{validación} y se reportaron resultados finales en \textit{test}. Para los ajustes de hiperparámetros se empleó \textit{RandomizedSearchCV} con \textit{TimeSeriesSplit} (3 particiones) para respetar la secuencia temporal. Los modelos probados fueron:
+Se usó MAE como métrica principal y RMSE como complemento. Se entrenaron los modelos en \textit{train}, se midieron en \textit{validación} y se reportaron resultados finales en \textit{test}. Para los ajustes de hiperparámetros se empleó \textit{RandomizedSearchCV} con \textit{TimeSeriesSplit} (3 particiones) y 50 iteraciones por modelo, explorando parámetros como profundidad máxima, tasa de aprendizaje, número de estimadores y regularización. Los modelos probados fueron:
 \begin{itemize}
 	\item Random Forest (200 árboles) como línea base.
 	\item XGBoost baseline y ajuste aleatorio.
@@ -141,7 +141,7 @@ Las fechas de compra y entrega presentan estacionalidad: agosto es el mes con m�
 	\label{fig:temporales}
 \end{figure}
 
-La matriz de correlación de la Figura~\ref{fig:correlacion} confirma que la distancia geográfica es el predictor numérico más fuerte del tiempo de entrega (0.394). El costo de envío correlaciona moderadamente, mientras que precio total e ítems tienen correlaciones casi nulas.
+La matriz de correlación de la Figura~\ref{fig:correlacion} confirma que la distancia geográfica es el predictor numérico más fuerte del tiempo de entrega ($r=0.394$). El costo de envío correlaciona moderadamente con el tiempo ($r=0.167$), pero se relaciona más con el peso ($r=0.64$) y la distancia ($r=0.315$), indicando que los recargos responden principalmente al tamaño del paquete. Precio total ($r=0.056$) e ítems ($r=-0.019$) tienen correlaciones prácticamente nulas.
 
 \begin{figure}[H]
 	\centering
@@ -150,7 +150,7 @@ La matriz de correlación de la Figura~\ref{fig:correlacion} confirma que la dis
 	\label{fig:correlacion}
 \end{figure}
 
-El dispersograma de la Figura~\ref{fig:distancia} muestra la relación distancia-tiempo. El ajuste lineal sugiere un incremento de ~6.4 días por cada 1000 km adicionales, aunque la dispersión vertical es alta: dos órdenes con la misma distancia pueden diferir en $\pm 20$ días.
+El dispersograma de la Figura~\ref{fig:distancia} muestra la relación distancia-tiempo. El ajuste lineal ($y = 0.0064x + 8.74$) sugiere un incremento de $\sim$6.4 días por cada 1000 km adicionales, con un tiempo base de 8.7 días incluso para entregas locales. La dispersión vertical es alta: dos órdenes con la misma distancia pueden diferir en $\pm 20$ días.
 
 \begin{figure}[H]
 	\centering
@@ -201,7 +201,29 @@ La Tabla~\ref{tab:modelos} resume el desempeño en \textit{test} (MAE en días).
 	\end{tabular}
 \end{table}
 
-Además del MAE, los boosters líderes presentaron RMSE de 5.678 (LightGBM) y 5.713 (CatBoost), confirmando que el error cuadrático sigue la misma tendencia. El tiempo de entrenamiento se mantuvo bajo para las configuraciones por defecto y aumentó durante las búsquedas aleatorias, sin compensar el costo adicional.
+Además del MAE, los boosters líderes presentaron RMSE de 5.678 (LightGBM) y 5.713 (CatBoost), confirmando que el error cuadrático sigue la misma tendencia. Respecto al tiempo de entrenamiento, LightGBM baseline se entrenó en apenas 0.85 segundos, mientras que CatBoost requirió 3.77 segundos; las búsquedas aleatorias aumentaron estos tiempos a varios minutos sin compensar el costo adicional con mejoras de desempeño.
+
+La Tabla~\ref{tab:validacion} muestra las métricas en validación, donde los errores fueron mayores que en test debido a la dificultad de las órdenes en ese período. No obstante, el ordenamiento relativo de modelos se mantiene: los boosters LightGBM y CatBoost lideran, y sus variantes ajustadas no superan a las versiones baseline.
+
+\begin{table}[H]
+	\centering
+	\caption{Métricas en el conjunto de \textit{validación} (errores en días).}
+	\label{tab:validacion}
+	\begin{tabular}{lrr}
+		\hline
+		Modelo                   & MAE            & RMSE  \\
+		\hline
+		Random Forest (baseline) & 4.990          & 7.161 \\
+		Random Forest (ajustado) & 4.873          & 6.783 \\
+		XGBoost (baseline)       & 5.049          & 7.360 \\
+		XGBoost (ajustado)       & 4.933          & 6.876 \\
+		LightGBM (baseline)      & 4.699          & 6.739 \\
+		LightGBM (ajustado)      & 4.729          & 6.758 \\
+		CatBoost (baseline)      & \textbf{4.690} & 6.789 \\
+		CatBoost (ajustado)      & 4.917          & 6.891 \\
+		\hline
+	\end{tabular}
+\end{table}
 
 La Tabla~\ref{tab:sesgo} resume el sesgo promedio (error medio) reportado en el cuaderno para los modelos base: todos sobreestiman el tiempo (sesgo negativo), siendo LightGBM y CatBoost los más cercanos a cero.
 
