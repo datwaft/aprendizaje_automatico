@@ -71,8 +71,6 @@ La Tabla~\ref{tab:particion} deja trazados los tamaños y rangos de fechas usado
 	\end{tabular}
 \end{table}
 
-Para mitigar fuga de información se evitaron atributos derivados de la fecha de entrega, se mantuvo el orden temporal en la partición y se empleó validación con \textit{TimeSeriesSplit}. Aun así, el modelo asume que las condiciones logísticas permanecen estables (stock, rutas, clima), lo que representa una posible fuente de error si esos factores cambian.
-
 \subsection{Modelos y métricas}
 
 Se usó MAE como métrica principal y RMSE como complemento. Se entrenaron los modelos en \textit{train}, se midieron en \textit{validación} y se reportaron resultados finales en \textit{test}. Para los ajustes de hiperparámetros se empleó \textit{RandomizedSearchCV} con \textit{TimeSeriesSplit} (3 particiones) para respetar la secuencia temporal. Los modelos probados fueron:
@@ -82,6 +80,28 @@ Se usó MAE como métrica principal y RMSE como complemento. Se entrenaron los m
 	\item LightGBM baseline y ajuste aleatorio\cite{ke2017lightgbm}.
 	\item CatBoost baseline y ajuste aleatorio orientado a categorías\cite{prokhorenkova2018catboost}.
 \end{itemize}
+
+\subsection{Flujo de trabajo}
+
+La Figura~\ref{fig:pipeline} esquematiza el pipeline completo desde la ingesta hasta la evaluación.
+
+\begin{figure}[H]
+	\centering
+	\setlength{\fboxsep}{6pt}
+	\begin{tabular}{c}
+		\fbox{\parbox{0.9\linewidth}{\textbf{Ingesta SQLite} \\ Unificación de órdenes, ítems, clientes y vendedores con agregados por orden (precio, flete, peso, volumen, ítems)}}\\[8pt]
+		$\downarrow$\\[8pt]
+		\fbox{\parbox{0.9\linewidth}{\textbf{Enriquecimiento geográfico} \\ Lat/lon promedio por código postal y distancia geodésica cliente--vendedor}}\\[8pt]
+		$\downarrow$\\[8pt]
+		\fbox{\parbox{0.9\linewidth}{\textbf{Partición temporal} \\ Corte 80/20 (train\_val/test) y 85/15 dentro de train\_val para validación; sin atributos derivados de la fecha de entrega}}\\[8pt]
+		$\downarrow$\\[8pt]
+		\fbox{\parbox{0.9\linewidth}{\textbf{Preprocesamiento} \\ ColumnTransformer con one-hot para categorías y paso directo de numéricos}}\\[8pt]
+		$\downarrow$\\[8pt]
+		\fbox{\parbox{0.9\linewidth}{\textbf{Entrenamiento y evaluación} \\ Modelos de árboles (RF, XGBoost, LightGBM, CatBoost) con MAE/RMSE y sesgo en test}}\\
+	\end{tabular}
+	\caption{Flujo del pipeline de modelado.}
+	\label{fig:pipeline}
+\end{figure}
 
 \section{Resultados}
 
@@ -194,6 +214,15 @@ La Figura~\ref{fig:mae_modelos} ilustra visualmente las diferencias de MAE en \t
 	\label{fig:mae_modelos}
 \end{figure}
 \FloatBarrier
+
+\section{Limitaciones}
+
+El flujo evita fuga temporal explícita, pero persisten varias limitaciones:
+\begin{itemize}
+	\item Supone estabilidad logística (stock, rutas, clima); cambios abruptos pueden degradar las predicciones.
+	\item No incorpora variables externas (feriados, clima, congestión), potencialmente relevantes para los valores atípicos.
+	\item El sesgo negativo persistente (~-2.4 días) implica sobreestimación sistemática; requiere calibración adicional.
+\end{itemize}
 
 \section{Trabajo relacionado}
 
