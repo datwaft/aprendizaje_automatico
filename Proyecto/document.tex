@@ -10,7 +10,7 @@
 
 \lstset{basicstyle=\ttfamily\footnotesize,columns=flexible,breaklines=true}
 
-\title{Proyecto}
+\title{Estimación del tiempo de entrega en Olist}
 
 \author{
   \IEEEauthorblockN{Kenneth Eduardo Barboza Corrales\IEEEauthorrefmark{1} \and David Alberto Guevara Sánchez\IEEEauthorrefmark{1}}\\
@@ -22,16 +22,83 @@
 \maketitle
 
 \begin{abstract}
-	TODO
+	Se estudió el dataset público de \textit{e-commerce} Olist\cite{olist_dataset} para predecir cuántos días tarda en entregarse cada orden. Se construyó un conjunto de datos unificado con montos de compra, costo de envío, peso, volumen, cantidad de ítems, coordenadas y variables temporales, calculando la distancia geodésica entre cliente y vendedor. Se evitó fuga temporal con un corte cronológico 80/20 (train\_val/test) y validación tomada del 15\% más reciente de train\_val. Como línea base se usó Random Forest y se comparó con XGBoost, LightGBM\cite{ke2017lightgbm} y CatBoost\cite{prokhorenkova2018catboost}. Los mejores resultados se obtuvieron con CatBoost sin tuning (MAE = 4.247 días, RMSE = 5.713), seguido de LightGBM (MAE = 4.294). La distancia fue el predictor más fuerte y los estados del norte presentaron entregas hasta 3 veces más lentas que el sudeste. Los intentos de ajuste de hiperparámetros empeoraron los modelos, por lo que se mantuvieron las configuraciones por defecto.
 \end{abstract}
 
 \begin{IEEEkeywords}
-	TODO
+	aprendizaje automático, logística, comercio electrónico, random forest, gradient boosting, CatBoost
 \end{IEEEkeywords}
 
 \section{Introducción}
 
-TODO
+Calcular el tiempo de entrega de una orden es clave para gestionar expectativas de los clientes de \textit{e-commerce}. Este trabajo aborda la predicción de días de entrega usando el dataset público de Olist\cite{olist_dataset}, que contiene órdenes realizadas en Brasil con información de clientes, vendedores, productos y coordenadas. El objetivo es estimar la cantidad de días entre la compra y la entrega, manteniendo el flujo de trabajo sencillo y reproducible.
+
+\section{Metodología}
+
+\subsection{Datos y construcción del conjunto}
+
+Se consultó la base SQLite provista (versión del dataset de Kaggle) unificando órdenes, ítems, clientes, vendedores y datos geográficos. Se filtraron únicamente órdenes entregadas con información completa y se agregaron todas las filas por orden. Las características clave incluyen:
+\begin{itemize}
+	\item Totales por orden: precio, costo de envío, peso, volumen y número de ítems.
+	\item Coordenadas promedio por código postal de cliente y vendedor; para órdenes con varios vendedores se promedió su ubicación.
+	\item Distancia geodésica cliente-vendedor en kilómetros.
+	\item Variables temporales de compra (mes, día de semana, hora) y categorías auxiliares (fin de semana, horario laboral, indicador de mismo estado y de región remota).
+	\item Variable objetivo: días efectivos de entrega calculados como diferencia entre la fecha de compra y la fecha de entrega.
+\end{itemize}
+
+\subsection{Partición y preprocesamiento}
+
+Para evitar fuga temporal, los datos se ordenaron por fecha de compra. El 20\% más reciente quedó como \textit{test}; dentro del 80\% restante, el 15\% final se usó como \textit{validación} y el resto como \textit{train}. Las fechas de entrega y sus derivados se excluyeron de las \textit{features} para no introducir información futura.
+
+El preprocesamiento combina variables categóricas y numéricas mediante un \texttt{ColumnTransformer}: las categorías se codifican con \textit{one-hot} y las variables numéricas se dejan sin escalar, pues los modelos de árboles no lo requieren.
+
+\subsection{Modelos y métricas}
+
+Se usó MAE como métrica principal y RMSE como complemento. Se entrenaron los modelos en \textit{train}, se midieron en \textit{validación} y se reportaron resultados finales en \textit{test}. Para los ajustes de hiperparámetros se empleó \textit{RandomizedSearchCV} con \textit{TimeSeriesSplit} (3 particiones) para respetar la secuencia temporal. Los modelos probados fueron:
+\begin{itemize}
+	\item Random Forest (200 árboles) como línea base.
+	\item XGBoost baseline y ajuste aleatorio.
+	\item LightGBM baseline y ajuste aleatorio\cite{ke2017lightgbm}.
+	\item CatBoost baseline y ajuste aleatorio orientado a categorías\cite{prokhorenkova2018catboost}.
+\end{itemize}
+
+\section{Resultados}
+
+\subsection{Exploración de datos}
+
+La variable objetivo presenta una mediana de 10.2 días y una media de 12.5, con cola larga de valores atípicos por encima de 30 días. La distancia geográfica mostró la mayor correlación con el tiempo de entrega (0.394). Los estados remotos del norte (RR, AP, AM) registraron promedios de 26--29 días, mientras que São Paulo entregó en 8.8 días; la brecha supera 3 veces entre regiones. Como vendedores, AM llegó a 47.8 días de media, evidenciando el impacto logístico al despachar desde la Amazonia. Las variables temporales tuvieron efecto marginal: comprar en fin de semana o fuera de horario laboral añadió menos de 0.5 días.
+
+\subsection{Comparación de modelos}
+
+La Tabla~\ref{tab:modelos} resume el desempeño en \textit{test} (MAE en días). El Random Forest baseline sirvió como referencia; el ajuste de hiperparámetros lo empeoró (-13.16\%). XGBoost tampoco superó la línea base. LightGBM mejoró 4.07\% y CatBoost fue el mejor con una mejora de 5.11\% sobre Random Forest. Los boosters compartieron un sesgo negativo cercano a -2.4 días, es decir, tienden a sobreestimar ligeramente el tiempo de entrega, lo cual es aceptable para comunicar rangos conservadores.
+
+\begin{table}[H]
+	\centering
+	\caption{Comparación de modelos en \textit{test} (MAE en días).}
+	\label{tab:modelos}
+	\begin{tabular}{lr}
+		\hline
+		Modelo & MAE \\
+		\hline
+		Random Forest (baseline) & 4.476 \\
+		Random Forest (ajustado) & 5.065 \\
+		XGBoost (baseline) & 4.614 \\
+		XGBoost (ajustado) & 4.766 \\
+		LightGBM (baseline) & 4.294 \\
+		LightGBM (ajustado) & 4.321 \\
+		CatBoost (baseline) & \textbf{4.247} \\
+		CatBoost (ajustado) & 4.581 \\
+		\hline
+	\end{tabular}
+\end{table}
+
+Además del MAE, los boosters líderes presentaron RMSE de 5.678 (LightGBM) y 5.713 (CatBoost), confirmando que el error cuadrático sigue la misma tendencia. El tiempo de entrenamiento se mantuvo bajo para las configuraciones por defecto y aumentó durante las búsquedas aleatorias, sin compensar el costo adicional.
+
+\section{Conclusiones y trabajo futuro}
+
+La distancia y la ubicación regional son los factores más determinantes para estimar días de entrega en Olist. Los modelos basados en árboles capturaron este patrón sin requerir ajustes complejos. CatBoost con configuración por defecto fue el mejor equilibrio entre precisión y simplicidad, con un MAE cercano a 4.2 días y sesgo conservador.
+
+Como trabajo futuro se propone calibrar el sesgo negativo, enriquecer el modelo con variables externas (feriados, clima o capacidad logística) y explorar modelos específicos por región para reducir la variabilidad entre estados remotos y el sudeste.
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}
